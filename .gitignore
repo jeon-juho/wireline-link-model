@@ -1,0 +1,52 @@
+# --- Python virtual environment -------------------------------------------
+.venv/
+venv/
+env/
+ENV/
+
+# --- Python bytecode and caches -------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# --- Test / type / lint caches --------------------------------------------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Jupyter ---------------------------------------------------------------
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# --- Generated simulation output -------------------------------------------
+# Everything in results/ is reproducible by re-running the scripts, and the
+# plots change on every run, so they are not tracked.  The directory itself is
+# kept via .gitkeep.  Delete these three lines if you want figures in the repo.
+results/*
+!results/.gitkeep
+
+# --- Editors and OS --------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- Local scratch ---------------------------------------------------------
+scratch/
+tmp/
+*.tmp
+
+# Note: channel/ IS tracked (~37 MB of Touchstone data, including the NEXT/FEXT
+# aggressors). It is the input the model is validated against, so the repo is
+# not reproducible without it. Move to Git LFS if the set grows much larger.
