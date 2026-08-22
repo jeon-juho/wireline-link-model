@@ -38,9 +38,9 @@ Two consequences that drive the module layout:
 | `config.py`      | `LinkConfig` and the nested `CTLEConfig` / `DFEConfig` / `CDRConfig` blocks: all parameters in SI units, one object threaded through everything | `params` |
 | `configs/`       | One module per experiment, each returning a `LinkConfig`; selected by name at run time | `config` |
 | `tx.py`          | PRBS generation, NRZ symbol mapping, upsampling to the oversampled grid    | numpy                 |
-| `channel.py`     | Load `.s4p`, extract mixed-mode Sdd21, enforce causality/passivity, produce frequency response | scikit-rf |
+| `channel.py`     | The whole channel path: load `.s4p`, detect port ordering, extract mixed-mode Sdd21, grid preparation (DC extrapolation / band limit / conjugate symmetry), impulse response, pulse response, cursor identification, and the self-tests on all of it | scikit-rf, numpy |
 | `ctle.py`        | CTLE transfer function as poles/zeros; frequency response and impulse response | control, scipy    |
-| `analog.py`      | Compose channel x CTLE into one frequency response; convert to impulse and pulse response | numpy, scipy |
+| `analog.py`      | Compose channel x CTLE into one frequency response, then hand it to `channel`'s time-domain path | numpy |
 | `dfe.py`         | Symbol-rate decision feedback: tap application, slicing, optional adaptation | numpy               |
 | `cdr.py`         | Bang-bang phase detector, loop filter, phase accumulator; linearized reference model | control, numpy |
 | `sim_time.py`    | Bit-by-bit transient engine — drives tx to analog to dfe/cdr over a PRBS sequence | all of the above |
@@ -87,9 +87,9 @@ voltages in V.
 
 | Module      | Proposed entry points                                                  |
 |-------------|------------------------------------------------------------------------|
-| `channel`   | `load(path) -> skrf.Network`; `differential_response(ntwk) -> (f, sdd21)` |
+| `channel`   | `detect_port_order(ntwk)`; `load(path) -> skrf.Network`; `mixed_mode(ntwk) -> dict`; `insertion_loss_report(f, sdd21, cfg)`; `prepare_response(f, H, cfg) -> (f, H, GridReport)`; `impulse_response(f, H, cfg) -> (t, h, GridReport)`; `pulse_response(h, cfg) -> p`; `split_pulse(p, cfg) -> SplitPulse`; `identify_cursors(sp, j) -> CursorReport`; `mm_lock_phase(sp) -> (j, phase_ui)`; `peak_distortion(sp, j, n_taps) -> Distortion`; `eye_vs_phase(sp, n_taps)`; `check_passivity` / `check_dc_gain` / `check_causality` / `check_wraparound` |
 | `ctle`      | `transfer_function(cfg) -> control.TransferFunction`; `response(tf, f) -> H` |
-| `analog`    | `compose(*responses) -> H`; `impulse_response(f, H, cfg) -> (t, h)`; `pulse_response(h, cfg) -> p`; `split_pulse(p, cfg) -> SplitPulse`; `mm_lock_phase(sp) -> (j, phase_ui)`; `peak_distortion(sp, j, n_taps) -> Distortion`; `eye_vs_phase(sp, n_taps) -> np.ndarray` |
+| `analog`    | `compose(*responses) -> H`; `cascade_to_pulse(f, *responses, cfg) -> (t, h, p)` |
 | `dfe`       | `run(x, taps) -> (decisions, y)` — tap values come from `SplitPulse` |
 | `cdr`       | `bbpd(samples, decisions) -> early_late`; `loop(cfg) -> control.TransferFunction`; `run(...) -> phase_trajectory` |
 | `sim_time`  | `run(cfg) -> TimeResult`                                               |

@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import numpy as np  # noqa: E402
 import skrf as rf  # noqa: E402
 
-from src import analog, channel, configs, plotting  # noqa: E402
+from src import channel, configs, plotting  # noqa: E402
 
 N_SHOW = 12  # cursors printed; totals always use the full cfg.isi_depth
 
@@ -65,24 +65,30 @@ def main(argv: list[str]) -> int:
           f"({int(cfg.dfe.n_taps.value)} tap), "
           f"CDR {'on' if cfg.cdr.enabled else 'off'}")
 
-    print("\ninsertion loss")
-    for ftgt in (1e9, 2e9, 4e9, cfg.nyquist, 12e9, 16e9):
-        print(f"  {ftgt / 1e9:5.1f} GHz : {channel.loss_at(f, sdd21, ftgt):6.2f} dB")
+    print(f"passivity: max|S| = {channel.check_passivity(probe):.4f}\n")
+    channel.insertion_loss_report(f, sdd21, cfg)
 
-    t, h = analog.impulse_response(f, sdd21, cfg)
-    p = analog.pulse_response(h, cfg)
-    sp = analog.split_pulse(p, cfg)
+    t, h, grid = channel.impulse_response(f, sdd21, cfg)
+    p = channel.pulse_response(h, cfg)
+    sp = channel.split_pulse(p, cfg)
 
-    total, err = analog.check_dc_gain(h, sdd21[0])
-    print(f"\nDC self-test : sum(h) = {total:.6f}, Sdd21(0) = {np.real(sdd21[0]):.6f}, "
+    total, err = channel.check_dc_gain(h, sdd21[0])
+    pre_frac, pre_thr = channel.check_causality(h)
+    wrap = channel.check_wraparound(h)
+    print(f"\ngrid         : {grid.summary()}")
+    print(f"DC self-test : sum(h) = {total:.6f}, Sdd21(0) = {np.real(sdd21[0]):.6f}, "
           f"error = {err:.2e}")
+    print(f"causality    : {pre_frac:.2e} of energy before the causal onset "
+          f"({'ok' if pre_frac < pre_thr else 'HIGH -- consider taper=True'})")
+    print(f"wraparound   : {wrap * 100:.4f}% of energy in the last 10% of record "
+          f"({'ok' if wrap < 1e-3 else 'HIGH -- increase n_time'})")
     print(f"peak delay   : {t[sp.k_peak] * 1e9:.3f} ns")
 
     # --- sampling phase -----------------------------------------------------
     n_taps = int(cfg.dfe.n_taps.value) if cfg.dfe.enabled else 0
     j_peak = sp.peak_phase
-    j_lock, lock_ui = analog.mm_lock_phase(sp)
-    eye_curve = analog.eye_vs_phase(sp, n_taps=n_taps)
+    j_lock, lock_ui = channel.mm_lock_phase(sp)
+    eye_curve = channel.eye_vs_phase(sp, n_taps=n_taps)
     j_best = int(np.argmax(eye_curve))
 
     print(f"\nsampling phase (relative to pulse peak)")
@@ -93,23 +99,19 @@ def main(argv: list[str]) -> int:
     print(f"  lock cost : {(eye_curve[j_best] - eye_curve[j_lock]) * 1e3:.1f} mV "
           f"vs. the best phase")
 
-    c = sp.at(j_lock)
-    print(f"\ncursors (mV) at the MM lock phase, first {N_SHOW} postcursors "
-          f"of {cfg.isi_depth}")
-    for m, v in zip(range(-cfg.n_pre, N_SHOW + 1), c[: cfg.n_pre + N_SHOW + 1]):
-        tag = "  <-- main" if m == 0 else ""
-        print(f"  {m:+3d} : {v * 1e3:8.3f}{tag}")
+    print()
+    print(channel.identify_cursors(sp, j_lock).format(max_rows=N_SHOW))
 
     print("\npeak-distortion analysis")
     for label, j in (("peak phase", j_peak), ("MM lock phase", j_lock)):
-        d = analog.peak_distortion(sp, j, n_taps=n_taps)
+        d = channel.peak_distortion(sp, j, n_taps=n_taps)
         print(f"  {label:<14s} main {d.main * 1e3:7.2f} mV | "
               f"ISI {d.isi * 1e3:7.2f} mV | "
               f"eye {d.eye * 1e3:8.2f} mV | "
               f"with {n_taps}-tap DFE {d.eye_with_dfe * 1e3:7.2f} mV "
               f"({'OPEN' if d.open else 'CLOSED'})")
 
-    d = analog.peak_distortion(sp, j_lock, n_taps=max(n_taps, 2))
+    d = channel.peak_distortion(sp, j_lock, n_taps=max(n_taps, 2))
     print(f"\nZF tap weights at the MM lock phase (w_m = h_m/h0)")
     for i, w in enumerate(d.taps, start=1):
         flag = "" if abs(w) <= cfg.dfe.max_tap_weight else \

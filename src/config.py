@@ -116,8 +116,12 @@ class CDRConfig:
     )
     k_i: Bounded = field(
         default_factory=lambda: Bounded(
-            6.8e-6, 1e-8, 1e-3,
-            note="integral gain; sets w_n and frequency tracking, not bandwidth",
+            2.7e-4, 1e-8, 1e-2,
+            note="integral gain; sets w_n and frequency tracking, not bandwidth. "
+                 "Raw loop gain, NOT normalized by K_pd: zeta = (k_p/2)*sqrt(K_pd/k_i), "
+                 "so this value targets zeta = 3 at sigma_tau = 0.02 UI. Folding K_pd "
+                 "in instead (cdr_notes section 4's normalized form) would read 6.8e-6 "
+                 "and give zeta = 18.9 -- outside the intended 2..5.",
         )
     )
     decimation: Bounded = field(
