@@ -47,6 +47,9 @@ scratch/
 tmp/
 *.tmp
 
-# Note: channel/ IS tracked (~37 MB of Touchstone data, including the NEXT/FEXT
-# aggressors). It is the input the model is validated against, so the repo is
-# not reproducible without it. Move to Git LFS if the set grows much larger.
+# --- Channel data ----------------------------------------------------------
+# The IEEE 802.3ck S-parameters are ~37 MB and belong to the P802.3ck task
+# force, so they are downloaded rather than redistributed here.
+# channel/README.md has the link and the expected layout.
+channel/*
+!channel/README.md

@@ -23,12 +23,34 @@ from .params import Bounded
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-DEFAULT_CHANNEL = (
-    REPO_ROOT
-    / "channel"
-    / "palkert_3ck_02_0120"
-    / "THRU_VL5_OD-BP-Channel_16inch_16inch.s4p"
+#: Where the reference THRU channel may sit, depending on how the IEEE archive
+#: was extracted.  The data is not redistributed with this repository -- see
+#: channel/README.md for the download -- and unzipping it one level up or down
+#: is the obvious way to end up with a different path, so all the plausible
+#: layouts are checked rather than failing on the first.
+_CHANNEL_CANDIDATES = (
+    "palkert_3ck_02_0120/Asymmetric_channel_16inch_16inch/"
+    "THRU_VL5_OD-BP-Channel_16inch_16inch.s4p",
+    "palkert_3ck_02_0120/THRU_VL5_OD-BP-Channel_16inch_16inch.s4p",
+    "palkert_3ck_02_0120/palkert_3ck_02_0120/Asymmetric_channel_16inch_16inch/"
+    "THRU_VL5_OD-BP-Channel_16inch_16inch.s4p",
 )
+
+
+def _default_channel() -> Path:
+    """First reference channel that exists, else the canonical path.
+
+    Returning the canonical path when nothing is found keeps the error message
+    pointed at where the file *should* be.
+    """
+    base = REPO_ROOT / "channel"
+    for rel in _CHANNEL_CANDIDATES:
+        if (base / rel).exists():
+            return base / rel
+    return base / _CHANNEL_CANDIDATES[0]
+
+
+DEFAULT_CHANNEL = _default_channel()
 
 
 @dataclass(frozen=True)
